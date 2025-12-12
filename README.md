@@ -3,6 +3,9 @@
     for the Abstraction and Reasoning Corpus
 </h1>
 
+<p align="center">
+  <img src="figures/pipeline.pdf" width="90%" />
+</p>
 
 This repository contains the reference implementation for the paper:
 

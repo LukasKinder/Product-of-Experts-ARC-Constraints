@@ -7,6 +7,6 @@ pretrained_models/*
 res/*
 ssh_commands/
 temp_output/
-unsloth_comile_cache/
+unsloth_compiled_cache/
 vram-24/
 __pycache__/
