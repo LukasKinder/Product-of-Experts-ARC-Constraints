@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import numpy as np
+import datetime
 
 
 def max_gen_prob(res):
@@ -34,18 +35,23 @@ def sum_aug_prob(res):
 def mul_aug_prob(res):
     return sum(res['scores_aug'].values())
 
+def median_aug_prob(res):
+    return np.median(list(res['scores_aug'].values()))
+
 
 all_score_algos = [
     max_gen_prob,  # highest probability from inference results
     max_aug_prob,  # highest probability from augmented scoring
     min_aug_prob,  # lowest probability from augmented scoring
     sum_aug_prob,  # sum of probabilities from augmented scoring
+    median_aug_prob, # median probability from augmented scoring
     mul_aug_prob,  # sum of log probabilities from augmented scoring
 ]
 
 
+
 class EvalTool(object):   # providing on-the-fly evaluation of scoring algorithms
-    def __init__(self, n_guesses, score_algos=all_score_algos, sorting_algo='mul_aug_prob', use_not_found=False):
+    def __init__(self, n_guesses, score_algos=all_score_algos, sorting_algo='mul_aug_prob', use_not_found=False, specific_constraint = None):
         self.score_algos = score_algos
         self.n_guesses = n_guesses  # number of guesses allowed
         self.sorting_algo = sorting_algo  # sorting algorithm for results, relevant for final submission (default: last)
@@ -53,8 +59,12 @@ class EvalTool(object):   # providing on-the-fly evaluation of scoring algorithm
         self.a_acc = 0  # counting cases where the solution is found at all
         self.count = 0  # counting number of tasks seen
         self.use_not_found = use_not_found
+        self.specific_constraint = specific_constraint
+        self.total_time = 0
 
     def process_result(self, res, name, value, print_func=print):
+        print(f"reporting results for {self.specific_constraint}")
+        print(f"Total time is {str(datetime.timedelta(seconds=int(self.total_time)))}")
         for r in res:
             r['scores_alg'] = [algo(r) for algo in self.score_algos]
         if self.sorting_algo is not None:
@@ -80,3 +90,4 @@ class EvalTool(object):   # providing on-the-fly evaluation of scoring algorithm
         a_acc_info = f"{self.a_acc / self.count:7.2%} ({self.a_acc:>6.2f}/{self.count:>6.2f})"
         if print_func is not None:
             print_func(f"   {'correct_found:':14} {a_acc_info}\n")
+

@@ -29,11 +29,23 @@ from model_tools import InputMaskingDataCollator, load_unsloth_model
 from inference_tools import inference_run
 from selection import EvalTool
 from arc_downloader import download_arc_data
+import argparse
+
+parser = argparse.ArgumentParser(description="Evaluate ARC model.")
+parser.add_argument("use_symbolic", type=str,
+                    help="Use symbolic mode: 'true' or 'false'.")
+parser.add_argument("min_prob", type=float,
+                    help="Minimum probability threshold (e.g. 0.2).")
+args = parser.parse_args()
+
+# convert string to boolean
+use_symbolic = args.use_symbolic.lower() in ("true", "1", "t", "yes", "y")
+min_prob = args.min_prob
 
 # configuration
-base_model = 'da-fr/Mistral-NeMo-Minitron-8B-ARChitects-ReArc1200-bnb-4bit'  # auto-downloaded from huggingface.co
+base_model = 'da-fr/Llama-3.2-3B-ARChitects-ReArc-bnb-4bit'  # auto-downloaded from huggingface.co
 arc_data_path = os.path.join('input', 'arc-prize-2024')  # format as on kaggle, auto-downloaded from arc git
-output_path = 'output_evaluate_NemoReArc1200_on_ARCeval_16x_dfs0.090_with_ttt'
+output_path = f'output/Llama_dfs{min_prob}_{"sym" if use_symbolic else "neuro"}'
 ttt_target_size = 1
 
 # load evaluation dataset
@@ -49,13 +61,28 @@ fmt_opts = dict(
     reply_beg='\n+/-=O',
     reply_end='\n' + tokenizer.eos_token,
     lines_sep='\n',
-    max_tokens=8192,
+    max_tokens=16384,
 )
 
 # main loop
 inference_keys = {}
 inference_results = {}
-eval_tool = EvalTool(n_guesses=2)
+
+all_eval_tools  = [
+    EvalTool(n_guesses = 2, specific_constraint = "only_one_color_changes"),
+    EvalTool(n_guesses = 2, specific_constraint = "a_specific_color_does_not_change"),
+    EvalTool(n_guesses = 2, specific_constraint = "output_is_different_to_input"),
+    EvalTool(n_guesses = 2, specific_constraint = "color_histogramm_stays_the_same_except_one"),
+    EvalTool(n_guesses = 2, specific_constraint = "count_of_a_specific_color_does_not_change"),
+    EvalTool(n_guesses = 2, specific_constraint = "no_lonely_pixels_in_output"),
+    EvalTool(n_guesses = 2, specific_constraint = "background_color_decreases"),
+    EvalTool(n_guesses = 2, specific_constraint = "output_has_specific_set_of_colors"),
+    EvalTool(n_guesses = 2, specific_constraint = "count_of_a_specific_color_changes_by_specific_amount"),
+    EvalTool(n_guesses = 2, specific_constraint = "output_is_horizontally_mirrored"),
+    EvalTool(n_guesses = 2, specific_constraint = "output_is_vertically_mirrored"),
+    EvalTool(n_guesses = 2, specific_constraint = "color_histogramm_stays_the_same"),
+    EvalTool(n_guesses = 2, specific_constraint = None),
+]
 
 with tqdm(eval_dataset.split(n=len(eval_dataset.challenge)//ttt_target_size, split_seed=123), desc='inference') as pbar:
     for i, eval_dataset_part in enumerate(pbar):
@@ -142,11 +169,12 @@ with tqdm(eval_dataset.split(n=len(eval_dataset.challenge)//ttt_target_size, spl
                 model_tok=get_model_and_tokenizer,
                 fmt_opts=fmt_opts,
                 dataset=eval_dataset_augmented,
-                min_prob=0.09,
+                min_prob=min_prob,
                 aug_score_opts=dict(n=2, **infer_aug_opts),
-                callback=eval_tool.process_result,
+                eval_tools=all_eval_tools,
                 cache=Cache(task_cache_path).memoize(typed=True, ignore=set(['model_tok', 'guess'])),
                 print_func=pbar.write,
+                use_symbolic=use_symbolic,
             )
         )
 
