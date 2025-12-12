@@ -4,7 +4,7 @@
 </h1>
 
 <p align="center">
-  <img src="figures/pipeline_extension.pdf" width="90%" />
+  <img src="figures/pipeline_extension.png" width="90%" />
 </p>
 
 This repository contains the reference implementation for the paper:
